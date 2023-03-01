@@ -1,0 +1,69 @@
+#include <iostream>
+#include <stdlib.h>
+#include <pthread.h>
+#include <thread>
+#include <time.h>
+#include <unistd.h>
+#include <string>
+using namespace std;
+
+#define NUM_THREADS 8
+#define MAX 1000000
+
+pthread_mutex_t mutx; // declares a variable that is used to synchronize access to a shared variable between multiple threads
+int data[MAX];
+long global_sum = 0;
+
+void *sum(void *threadid)
+{
+   long tid;
+   long sum = 0;
+   tid = (long)threadid;
+  
+   // calculates the range of indices in the data array that each thread will process, based on the total number of threads and the size of the array
+   int range = MAX/NUM_THREADS;
+   int start = tid * range ;
+   int end = start + range ;
+
+   // iterates over a portion of the data array and computes the sum of the integers in that portion
+   for(int i = start ; i < end ; i++) {
+        sum += data[i];
+   }
+
+   //locks the mutex variable to ensure that only one thread at a time can access the shared variable that stores the sum of the array
+   pthread_mutex_lock(&mutx);
+   global_sum += sum;
+   pthread_mutex_unlock(&mutx);
+
+   // the thread has finished executing 
+   pthread_exit(NULL);
+}
+
+int main(int argc, char *argv[])
+{
+    int cores = std::thread::hardware_concurrency();
+    pthread_mutex_init(&mutx, NULL); // Initialize the mutex variable
+
+    cout<<" the number of cores on this machine = "<<cores<<endl;
+
+   // fills the data array with random integers
+   for(int i = 0; i < MAX; i++) {
+       data[i] = rand() % 20;
+   }
+
+   //creates a number of threads equal to NUM_THREADS and assigns each thread a portion of the array to process
+   pthread_t threads[NUM_THREADS];
+   long tid = 0;
+
+   for(tid = 0; tid < NUM_THREADS; tid++) {
+       pthread_create(&threads[tid], NULL, sum, (void *)tid);
+   }
+
+   // waits for all the threads to finish executing before proceeding
+   for(tid = 0; tid < NUM_THREADS; tid++) {
+       pthread_join(threads[tid], NULL);
+   }
+
+   // prints out the final sum of the array
+   cout<<"the final sum ="<<global_sum<<endl;
+}
